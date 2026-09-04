@@ -138,6 +138,10 @@ constexpr atomic_val_t SERIALIZED_NOTIFY_IDLE = 0;
 constexpr atomic_val_t SERIALIZED_NOTIFY_WAITING = 1;
 constexpr atomic_val_t SERIALIZED_NOTIFY_TIMED_OUT = 2;
 constexpr unsigned SERIALIZED_NOTIFY_TIMEOUT_MS = 250;
+constexpr uint16_t PRODUCT_CONN_INTERVAL_MIN = 6;
+constexpr uint16_t PRODUCT_CONN_INTERVAL_MAX = 12;
+constexpr uint16_t PRODUCT_CONN_LATENCY = 0;
+constexpr uint16_t CONN_SUPERVISION_TIMEOUT = 400;
 
 void finish_serialized_notify()
 {
@@ -352,6 +356,21 @@ void request_link_parity(bt_conn *connection)
 #endif
 }
 
+void request_product_connection_parameters(bt_conn *connection)
+{
+    static const bt_le_conn_param parameters{
+        PRODUCT_CONN_INTERVAL_MIN,
+        PRODUCT_CONN_INTERVAL_MAX,
+        PRODUCT_CONN_LATENCY,
+        CONN_SUPERVISION_TIMEOUT,
+    };
+    const int result = bt_conn_le_param_update(connection, &parameters);
+    if (result != 0 && result != -EALREADY)
+    {
+        LOG_WRN("Product connection parameter request failed: %d", result);
+    }
+}
+
 int start_advertising()
 {
     if (!g_started || g_advertising)
@@ -430,6 +449,7 @@ void connected(bt_conn *connection, uint8_t error)
     k_mutex_unlock(&g_connection_mutex);
     LOG_INF("Connected");
     log_link_info(connection, "connected");
+    request_product_connection_parameters(connection);
     request_link_parity(connection);
 }
 
@@ -1168,8 +1188,8 @@ void gattserver_set_fast_conn(bool fast)
         return;
     }
     const bt_le_conn_param parameters = fast
-        ? bt_le_conn_param{0x000c, 0x0018, 0, 400}
-        : bt_le_conn_param{0x0048, 0x0068, 0, 400};
+        ? bt_le_conn_param{0x000c, 0x0018, 0, CONN_SUPERVISION_TIMEOUT}
+        : bt_le_conn_param{0x0048, 0x0068, 0, CONN_SUPERVISION_TIMEOUT};
     const int result = bt_conn_le_param_update(connection, &parameters);
     if (result != 0)
     {

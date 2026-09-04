@@ -92,6 +92,26 @@ class ZephyrBackendContractTest(unittest.TestCase):
         self.assertIn("gattserver_register_link_info_cb", header)
         self.assertIn("g_link_info_cb(&linkInfo)", source)
 
+    def test_connected_requests_product_connection_parameters_once(self) -> None:
+        zephyr = (ROOT / "backends" / "zephyr" / "gattserver_zephyr.cpp").read_text(
+            encoding="utf-8"
+        )
+        esp = (ROOT / "gap.cpp").read_text(encoding="utf-8")
+
+        self.assertIn("PRODUCT_CONN_INTERVAL_MIN = 6", zephyr)
+        self.assertIn("PRODUCT_CONN_INTERVAL_MAX = 12", zephyr)
+        self.assertIn("PRODUCT_CONN_LATENCY = 0", zephyr)
+        self.assertIn("CONN_SUPERVISION_TIMEOUT = 400", zephyr)
+        self.assertEqual(
+            zephyr.count("request_product_connection_parameters(connection);"), 1
+        )
+        self.assertRegex(
+            zephyr,
+            r"void connected\([\s\S]*?request_product_connection_parameters\(connection\);",
+        )
+        self.assertIn("bt_conn_le_param_update(connection, &parameters)", zephyr)
+        self.assertNotIn("PRODUCT_CONN_INTERVAL_MIN", esp)
+
 
 if __name__ == "__main__":
     unittest.main()
